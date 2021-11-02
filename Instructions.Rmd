@@ -41,13 +41,8 @@ Note that you will need to read these datasets into R at the top of your Rmd fil
 
 ```{R eval=F}
 library(tidyverse)
-data1 <- read_csv("/path/to/dataset1.csv")
-data2 <- read_csv("/path/to/dataset2.csv")
-
-#or, if you'd prefer to read it in from some remote location
-
-data1 <- read_csv("https://some.website/dataset1.csv")
-data2 <- read_csv("https://some.website/dataset2.csv")
+data1 <- read_csv("/stor/home/yc27347/project1/world-happiness-2020.csv")
+data2 <- read_csv("/stor/home/yc27347/project1/cost-of-living-2020.csv")
 ```
 
 ### Guidelines
@@ -57,12 +52,25 @@ data2 <- read_csv("https://some.website/dataset2.csv")
     - Depending on your datasets, it might be a good idea to do this before joining. For example, if you have a dataset you like with multiple measurements per year, but you want to join by year, you could average over your numeric variables to get means/year, do counts for your categoricals to get a counts/year, etc.
     
     - If your data sets are already tidy, demonstrate the use of `pivot_longer()/gather()` and `pivot_wider()/spread()` on all or part of your data at some point in this document (e.g., after you have generated summary statistics in part 3, make a table of them wide instead of long).
-    
+
+```{R eval=F}
+# Both datasets are already tidy, so I'll demonstrate the use of pivot_wider() on part of my data.
+untidy_data1 <- data1 %>% pivot_wider(names_from="Regional indicator", values_from="Country name")
+glimpse(untidy_data1)
+
+tidy_data1 <- untidy_data1 %>% pivot_longer(c("Western Europe":"South Asia"), names_to="Country name", values_to="Regional indicator")
+glimpse(tidy_data1)
+```
 
 2. Join your 2+ separate data sources into a single dataset based on a common ID variable! If you can't find a good pair of datasets to join, you may split one main dataset into two different datasets with a common ID variable in each, and then join them back together based on that common ID, but this is obviously less than ideal!
 
     - You will document the type of join that you do (left/right/inner/full), including a discussion of how many observations/rows and distinct IDs were in each original dataset, which IDs appeared in one dataset but not the other, how many observations in each dataset were dropped (if any) after doing the join, and why you chose this particular join. 
 
+```{R eval=F}
+# Joining the two datasets
+joined_data <- inner_join(data1, data2, by=c("Country name"="Country"))
+glimpse(joined_data)
+```
 
 3. Create summary statistics
 

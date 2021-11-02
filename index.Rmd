@@ -19,73 +19,196 @@ tidy=TRUE, tidy.opts=list(width.cutoff=60), R.options=list(max.print=100))
 
 ## Data Wrangling, Exploration, Visualization
 
-### Name and EID here
+### Yejin Cho (yc27347)
 
 #### Introduction 
 
-Paragraph or two introducing your datasets and variables, why they are interesting to you, etc.
+##### Datasets
+My datasets are on (1) **world happiness** and (2) **cost of living** surveyed in the same year, 2020.
+
+The first dataset on the world happiness level and the relevant factors include 9 variables: Country name, Regional indicator, Ladder score (i.e., happiness level or subjective well-being score ranging from 0 to 10; higher the better), Logged GDP per capita, Social support (0: not supported, 1: supported), Healthy life expectancy, Freedom to make life choices (0: unsatisfactory with the level of freedom, 1: satisfactory), Generosity (how much donation to charity with respect to GDP), and Perceptions of corruption (0: not corrupted, 1: corrupted). This dataset contains statistics for 153 countries and is collected as part of the World Happiness Report 2020 by Gallup World Poll.
+
+On the other hand, the second dataset on the cost of living of countries over the world contains 8 variables: Country, Cost of Living Index, Rent Index, Cost of Living Plus Rent Index, Groceries Index, Restaurant Price Index, and Local Purchasing Power Index. They are collected by a crowd-sourced global database, [Numbeo](https://www.numbeo.com), in 2020. This dataset contains information about 132 countries in the world.
+
+##### Motivations
+I found these datasets interesting in that they could reveal the relationship between cost of living and level of happiness. What contributes to the subjective well-being has been a longstanding question for the humanities, as all humans yearn for a happy life. What could these recent data tell us about happiness? This small project aims to investigate this question.
 
 ```{R}
-# read your datasets in here, e.g., with read_csv()
-
+library(tidyverse)
+data1 <- read_csv("/stor/home/yc27347/project1/world-happiness-2020.csv")
+data2 <- read_csv("/stor/home/yc27347/project1/cost-of-living-2020.csv")
+glimpse(data1)
+glimpse(data2)
 ```
 
 #### Tidying: Reshaping
 
-If your datasets are tidy already, demonstrate that you can reshape data with pivot wider/longer here (e.g., untidy and then retidy). Alternatively, it may be easier to wait until the wrangling section so you can reshape your summary statistics. Note here if you are going to do this.
+It turned out that both of the datasets are already tidy, so I demonstrate the use of `pivot_longer()` and `pivot_wider()` on one of my data. What happens in the 'untidying' process (`pivot_wider`) below is transforming the dataframe into a partially wide format by expanding the columns with the names in the `Regional indicator` column and filling up the rows under these columns with the values from `Country name` column. In order to tidy it up, what is done afterwards (`pivot_longer`) is transforming those untidy columns ranging from `Western Europe` to `South Asia` back to the two columns `Country name` and `Regional indicator`.
 
 ```{R}
-# your tidying code (if applicable; can also wait until wrangling section)
+# your tidying code
+untidy_data1 <- data1 %>% pivot_wider(names_from="Regional indicator", values_from="Country name")
+glimpse(untidy_data1)
+
+tidy_data1 <- untidy_data1 %>% pivot_longer(c("Western Europe":"South Asia"), names_to="Regional indicator", values_to="Country name", values_drop_na = TRUE)
+glimpse(tidy_data1)
 ```
 
     
 #### Joining/Merging
 
 ```{R}
-# your joining code
-
-# your joining code
+# data inspection
+data1 %>% distinct(`Country name`)
+data1 %>% nrow()
+data2 %>% distinct(`Country`)
+data2 %>% nrow()
 ```
 
-Discussions of joining here. Feel encouraged to break up into more than once code chunk and discuss each in turn.
+In `data1` (world happiness), we have 153 observations/rows and 153 distinct `Country name` (IDs), while `data2` (cost of living) has 132 observations/rows and 132 distinct `Country` (IDs). This means that both of them have 1 observation/row per country (ID), without any redundancies.
+
+```{R}
+# distinct country names from two datasets
+countries1 <- data1 %>% distinct(`Country name`) %>% rename(`Country`=`Country name`)
+countries2 <- data2 %>% distinct(`Country`)
+
+# inner join
+joined_data <- inner_join(data1, data2, by=c("Country name"="Country")) %>% rename(`Country`=`Country name`)
+countries_common <- joined_data %>% distinct(`Country`)
+glimpse(joined_data)
+
+# countries that only appear in data1
+setdiff(countries1, countries_common)
+
+# countries that only appear in data2
+setdiff(countries2, countries_common)
+```
+
+The type of join I did is `inner join`, which only leaves us with the data tied to the intersection of the common variable ID. After inner-joining, I get a reduced dataset for 111 countries, which mean that there exist 111 countries in common between the two datasets. There are 42 countries that only appear in `data1`, which include Kosovo, Libya, and Mongolia. On the other hand, there are 21 countries that only appear in `data2`, which include Bahamas, Hong Kong, and Taiwan. The observations on these countries (i.e., 42 countries in `data1` and 21 countries in `data2`) are dropped after `inner join.`
+
+I chose to do this particular type of join as I wanted to draw some connections between the statistics in `data1` and `data2`. In order to do so, I need full observations of each country on the variables in both datasets by inner-joining. 
+
 
 ####  Wrangling
 
 ```{R}
-# your wrangling code
+# Use all six core dplyr functions in the service of generating summary tables/statistics (14 pts)
+# (1) filter: extract the data of happier countries (with Ladder score above mean)
+happier_side <- joined_data %>% filter(`Ladder score`>mean(`Ladder score`))
 
-# your wrangling code
+# (2) arrange: sort by Ladder score in descending order
+happier_side <- happier_side %>% arrange(desc(`Ladder score`)) %>% glimpse()
 
-# your wrangling code
+# (3) select: select a subset of variables for analysis
+happier_side<- happier_side %>% select(`Country`, `Regional indicator`, `Ladder score`, `Cost of Living Index`, `Rent Index`, `Groceries Index`, `Restaurant Price Index`) %>% glimpse()
+
+# (4) mutate: add `food_cost` variable which is a sum of groceries and restaurant price index
+happier_side<- happier_side %>% mutate(food_cost=sum(`Groceries Index`, `Restaurant Price Index`)) %>% glimpse()
+
+# (5) summarize: compute the mean Ladder score of the filtered countries
+happier_side %>% summarize(happier_mean=mean(`Ladder score`)) # 6.54
+
+# (6) group_by: group by region to compute mean for each regional group + sort the mean scores in descending order to find the happiest region among those
+happier_side %>% group_by(`Regional indicator`) %>% summarize(happier_group_mean=mean(`Ladder score`)) %>% arrange(desc(happier_group_mean))
 ```
 
-Your discussion of wrangling section here. Feel encouraged to break up into more than once code chunk and discuss each in turn.
+In the above chunk of work, I have first filtered out the joined data to extract the happier side of countries which have Ladder scores above the mean and names this subset as `happier_side`. By using `arrange`, I was able to sort the dataset by Ladder score in descending order, which enables seeing the happiest countries first in the top rows. Through the `select` method, I selected a subset of the seven existing variables for the later analysis. After that, I used `mutate` to add a new variable called `food_cost`, which is the sum of Groceries Index and Restaurant Price Index of each row. To compute the mean happiness score (Ladder score) of the filtered countries, I used `summarize` and `mean` and got 6.54 from it. Lastly, I grouped the dataset by region by `group_by` method to compute mean for each regional group. Afterwards, I sorted the computed mean scores in descending order to find the happiest region computed among the happier countries, which turns out to be `North America and ANZ`.
+
+
+```{R}
+# Compute summary statistics for each of your variables using summarize (fine to use variants such as summarize_all) alone and with group_by (if you have more than 10 variables, fine to just focus on 10 of them) (20 pts)
+
+# Use at least 5 unique functions inside of summarize (e.g., mean, sd)
+joined_data %>% summarize(overall_min=min(`Ladder score`),
+                          overall_1st_quartile=quantile(`Ladder score`, probs = 0.025),
+                          overall_mean=mean(`Ladder score`),
+                          overall_3rd_quartile=quantile(`Ladder score`, probs = 0.975),
+                          overall_max=max(`Ladder score`),
+                          overall_sd=sd(`Ladder score`))
+
+# For at least 2 functions, use summarize after grouping by a categorical variable. Create one by dichotomizing a numeric if necessary
+joined_data %>% group_by(`Regional indicator`) %>% summarize(region_min=min(`Ladder score`),
+                                                             region_1st_quartile=quantile(`Ladder score`, probs = 0.025),
+                                                             region_mean=mean(`Ladder score`),
+                                                             region_3rd_quartile=quantile(`Ladder score`, probs = 0.975),
+                                                             region_max=max(`Ladder score`),
+                                                             region_sd=sd(`Ladder score`))
+
+# For at least 1 function, define your own function and use it inside summarize
+zscore <- function(x){(x-mean(x))/sd(x)}
+joined_data %>% summarize(ladder_z = zscore(`Ladder score`))
+
+# If applicable, at least 1 of these should group by two categorical variables
+# -> Grouping by two categorical variables do not make sense in this data, since the two categorical variables (Country and Regional indicator) are conveying same type of information (geological information) and we do not have more than one observation per country. 
+
+# For each categorical variable, provide a table of counts for each level (e.g., by using n() inside summarize after group_by)
+# Style at least one table with gt or kable packages (4 pts)
+library(knitr)
+joined_data %>% group_by(`Regional indicator`) %>% summarize(`Region count` = n()) %>% kable(align=c("rclcr"))
+joined_data %>% group_by(`Country`) %>% summarize(`Country count` = n())
+```
+
+Here, I used five different functions inside of summarize() function, first without grouping and then after grouping by `Regional indicator` variable. The functions include: min(), quantile() with different arguments, mean(), max(), and sd(). In the first summarization result, the descriptive statistics are computed for the entire data, while the second result shows the computed numbers for each group (region). As my own user-defined function, I defined a z-score function which is computed by dividing the difference between the variable and its mean by its standard deviation. I was able to compute z-score of Ladder scores under the column `ladder_z` by using the zscore() function within the summarize() function. In these processes, I did not group by the two categorical variables, because grouping by those do not make sense in this specific data; to be specific, the two categorical variables (`Country` and `Regional indicator`) are conveying the same type of information (geological information) and we do not have more than one observation per country. 
+
+Lastly, I was able to generate two count tables of each country and region by using n() inside summarize() after grouping by the corresponding categorical variable. Western Europe had the most observations (n=20), while East Asia had the least observations (n=3). The observation per country was 1 for all countries.
 
 
 #### Visualizing
 
 ```{R}
-# your plot 1
+# Create 3 effective, polished plots with ggplot (30 pts)
+ggplot(data=joined_data, aes(x=`Regional indicator`, y=`Ladder score`)) +
+  geom_bar(stat="summary", fun=mean, aes(fill=`Regional indicator`)) + 
+  geom_errorbar(stat="summary", fun.data=mean_se, width=.5) + 
+  ggtitle("Mean ladder score per regional group") +
+  xlab("Regional groups") +
+  ylab("Ladder score (happiness index)") +
+  scale_y_continuous(breaks=seq(0,10,1)) + 
+  theme(plot.title=element_text(size=14, face="bold"), axis.text.x = element_text(angle=60, hjust=1, face="bold"), legend.position="none")
 ```
 
-Your discussion of plot 1
+This barplot shows the mean ladder score distribution of each regional group. The highest ladder scores are from North America and ANZ, while the lowest scores are from Sub-Saharn Africa region. The smallest variance in the ladder score is observed from North America and ANZ, whereas the largest variance is observed from South Asia. This indicates that the ladder scores of the countries in South Asia region varied the most among all regional groups. However, this could be partially attributed to the limited number of countries surveyed in South Asia group.
 
 ```{R}
 # your plot 2
+ggplot(data=joined_data, aes(x=`Cost of Living Index`, y=`Ladder score`)) + 
+  geom_point(size = 2, aes(color=`Regional indicator`)) + 
+  geom_smooth(method = lm) + 
+  ggtitle("Relation between cost of living and ladder score") +
+  xlab("Cost of living index") +
+  ylab("Ladder score (happiness index)") +
+  theme(plot.title = element_text(size=14, face="bold")) + 
+  scale_x_continuous(breaks=seq(0,125,5))
+
+ggplot(data=joined_data, aes(x=`Logged GDP per capita`, y=`Ladder score`)) + 
+  geom_point(size = 2, aes(color=`Regional indicator`)) + 
+  geom_smooth(method = lm) + 
+  ggtitle("Relation between GDP per capita and ladder score") +
+  xlab("Logged GDP per capita") +
+  ylab("Ladder score (happiness index)") +
+  theme(plot.title = element_text(size=14, face="bold")) + 
+  scale_x_continuous(breaks=seq(7,12,.5))
 ```
 
-Your discussion of plot 2
+The scatterplot above shows the relationship between ladder score and cost of living index shown from the 111 surveyed countries. The color of each point indicates the regional group each country belongs to. The smoothed regression line in blue indicates that these two variables are positively correlated, meaning that the higher the cost of living of a country it is more likely to have higher ladder score. The cost of living tells us about the overall economic status of a country, closely related to how much money people earn for the living. For this, we also looked at how the GDP per capita relates to ladder score in the next plot. As expected, both of the regression lines in the two plots head to right upper corner. The second plot tells us that a positive correlation exists between the amount of GDP earned and the ladder score of the people in a country.
+
 
 ```{R}
 # your plot 3
+ggplot(data=joined_data, aes(x=`Logged GDP per capita`, y=`Ladder score`)) + 
+  geom_point(size = 1) + 
+  geom_smooth(method=lm) + 
+  ggtitle("Relation between GDP per capita and ladder score (per regional group)") +
+  xlab("Logged GDP per capita") +
+  ylab("Ladder score (happiness index)") +
+  scale_y_continuous(lim=c(4,8)) + 
+  theme(plot.title = element_text(size=14, face="bold")) + 
+  facet_wrap(`Regional indicator`~., nrow=4)
 ```
+However, when we facet the plots into each regional group, the story seems to be a little bit different. The positive correlation between GDP and ladder score holds in some region groups, but not all of them: it is the clearest in the regions such as `Central and Eastern Europe` and `Western Europe`, but the opposite negative trend is observed in some regions such as `South Africa` and `North America and ANZ`. One thing we should note is that the two countries where we see the negative correlation between GDP and ladder score are in the region groups that consist of a limited number of sample countries. Thus, we should be cautious on drawing a conclusion from the observations on those groups.
 
-Your discussion of plot 3
 
 #### Concluding Remarks
 
-If any!
-
-
-
+It was a fun small project which gave a chance to play with multiple functionalities of R and its libraries.
 
